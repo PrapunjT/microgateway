@@ -229,6 +229,11 @@ Gateway.prototype.start = (options,cb) => {
         // send reload message to socket.
         var clientSocket = new JsonSocket(new net.Socket()); //Decorate a standard net.Socket with JsonSocket
         clientSocket.connect(ipcPath);
+        //handling extauth public key reload by adding interval
+        var reloadExtauthHandler;
+        if(config.edgemicro.plugins.sequence.includes("extauth") && config.extauth.rotate_public_key_interval){
+            reloadExtauthHandler = setInterval(mgCluster.reloadextauth, config.extauth.rotate_public_key_interval*10000);
+             }
         //start the polling mechanism to look for config changes
         var reloadOnConfigChange = (oldConfig, cache, opts) => {
             writeConsoleLog('log', { component: CONSOLE_LOG_TAG_COMP }, 'Checking for change in configuration');
@@ -251,6 +256,14 @@ Gateway.prototype.start = (options,cb) => {
                     const newConfigEnvReplaced = edgeconfig.replaceEnvTags(newConfig, { disableLogs: true  });
                     var isConfigChanged = hasConfigChanged(oldConfig,  newConfigEnvReplaced);
                     if (isConfigChanged) {
+                        //Clear extauth reload public key interval if running 
+                        if(reloadExtauthHandler){
+                            clearInterval(reloadExtauthHandler);
+                         }
+                         //reinitialize extauth reload public key interval if it exists in new config
+                        if(newConfig.edgemicro.plugins.sequence.includes("extauth") && newConfig.extauth.rotate_public_key_interval){
+                            reloadExtauthHandler = setInterval(mgCluster.reloadextauth, newConfig.extauth.rotate_public_key_interval*10000);
+                        }
                         writeConsoleLog('log', { component: CONSOLE_LOG_TAG_COMP }, 'Configuration change detected. Saving new config and Initiating reload');
                         edgeconfig.save(newConfig, cache);
                         if ( adminServer ) {
