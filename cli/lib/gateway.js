@@ -229,11 +229,6 @@ Gateway.prototype.start = (options,cb) => {
         // send reload message to socket.
         var clientSocket = new JsonSocket(new net.Socket()); //Decorate a standard net.Socket with JsonSocket
         clientSocket.connect(ipcPath);
-        //handling extauth public key reload by adding interval
-        var reloadExtauthHandler;
-        if(config.edgemicro.plugins.sequence.includes("extauth") && config.extauth.rotate_public_key_interval){
-            reloadExtauthHandler = setInterval(mgCluster.reloadextauth, config.extauth.rotate_public_key_interval*10000);
-             }
         //start the polling mechanism to look for config changes
         var reloadOnConfigChange = (oldConfig, cache, opts) => {
             writeConsoleLog('log', { component: CONSOLE_LOG_TAG_COMP }, 'Checking for change in configuration');
@@ -248,6 +243,12 @@ Gateway.prototype.start = (options,cb) => {
                     // failed to check new config. so try to check again after pollInterval
                     writeConsoleLog('error', { component: CONSOLE_LOG_TAG_COMP }, 'Failed to check for change in Config. Will retry after ' + pollInterval + ' seconds');
                     setTimeout(() => {
+                        //Sending exauth pk reload message to workers if rotate_public_key config is true
+                        if(config.edgemicro.plugins.sequence && config.extauth){ 
+                            if(config.edgemicro.plugins.sequence.includes("extauth") && config.extauth.rotate_public_key){
+                                mgCluster.sendMessageToWorkers("reload extauth pk");
+                            }
+                        }
                         reloadOnConfigChange(oldConfig, cache, opts);
                     }, pollInterval * 1000);
                 }
@@ -256,14 +257,6 @@ Gateway.prototype.start = (options,cb) => {
                     const newConfigEnvReplaced = edgeconfig.replaceEnvTags(newConfig, { disableLogs: true  });
                     var isConfigChanged = hasConfigChanged(oldConfig,  newConfigEnvReplaced);
                     if (isConfigChanged) {
-                        //Clear extauth reload public key interval if running 
-                        if(reloadExtauthHandler){
-                            clearInterval(reloadExtauthHandler);
-                         }
-                         //reinitialize extauth reload public key interval if it exists in new config
-                        if(newConfig.edgemicro.plugins.sequence.includes("extauth") && newConfig.extauth.rotate_public_key_interval){
-                            reloadExtauthHandler = setInterval(mgCluster.reloadextauth, newConfig.extauth.rotate_public_key_interval*10000);
-                        }
                         writeConsoleLog('log', { component: CONSOLE_LOG_TAG_COMP }, 'Configuration change detected. Saving new config and Initiating reload');
                         edgeconfig.save(newConfig, cache);
                         if ( adminServer ) {
@@ -274,6 +267,12 @@ Gateway.prototype.start = (options,cb) => {
                         });
                     }
                     setTimeout(() => {
+                        //Sending exauth pk reload message to workers if rotate_public_key config is true
+                        if(newConfig.edgemicro.plugins.sequence && newConfig.extauth){ 
+                            if(newConfig.edgemicro.plugins.sequence.includes("extauth") && newConfig.extauth.rotate_public_key){
+                            mgCluster.sendMessageToWorkers("reload extauth");
+                        }
+                    }
                         reloadOnConfigChange(newConfigEnvReplaced, cache, opts);
                     }, pollInterval * 1000);
                 }
@@ -281,6 +280,12 @@ Gateway.prototype.start = (options,cb) => {
         };
         if (!shouldNotPoll) {
             setTimeout(() => {
+                //Sending exauth pk reload message to workers if rotate_public_key config is true
+                if(config.edgemicro.plugins.sequence && config.extauth){ 
+                    if(config.edgemicro.plugins.sequence.includes("extauth") && config.extauth.rotate_public_key){
+                        mgCluster.sendMessageToWorkers("reload extauth pk");
+                    }
+                }
                 reloadOnConfigChange(config, cache, configOptions);
             }, pollInterval * 1000);
         }
