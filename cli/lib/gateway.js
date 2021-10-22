@@ -234,6 +234,12 @@ Gateway.prototype.start = (options,cb) => {
             writeConsoleLog('log', { component: CONSOLE_LOG_TAG_COMP }, 'Checking for change in configuration');
             if (configurl)
                 opts.configurl = configurl;
+            //Send message to worker for extauth public key reload if rotate_public_key config is true
+            if(oldConfig.edgemicro.plugins.sequence && oldConfig.edgemicro.plugins.sequence.includes("extauth")){
+                if(oldConfig.extauth && oldConfig.extauth.rotate_public_key){
+                    mgCluster.sendMessageToWorkers({'updateExtauthPublicKey': true});
+                }
+            }
             //var self = this;
             edgeconfig.get(opts, (err, newConfig) => {
                 if (validator(newConfig) === false && !err) {

@@ -278,7 +278,16 @@ class ClusterManager extends EventEmitter {
       healthCheck(this) 
     },DEFAULT_PROCESS_CHECK_INTERVAL)  // once in a while check to see if everything is the way it is supposed to be
   }
-  
+  //Generic method to send message to workers
+  sendMessageToWorkers(message){
+    if(cluster.isMaster){
+      if(cluster.workers){
+        for(const i of Object.keys(cluster.workers)){
+          cluster.workers[i].send(message);
+        }
+      }
+    }
+  }
   // --optionDefaults--------------------------------------- 
   optionDefaults(opt) {
     // initializing opt with defaults if not provided
